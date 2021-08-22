@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import AppKit
 
 main()
 
@@ -16,22 +17,13 @@ fileprivate func main() {
     var active_pid:pid_t?
     var transformer:WindowTransformer?
     
-    var listeningEscapeAndMouseFlag = false {
-        didSet {
-            if listeningEscapeAndMouseFlag {
-                print("CALLED THIS")
-                let x = CGAssociateMouseAndMouseCursorPosition(0)
-                print(x)
-            } else {
-                CGAssociateMouseAndMouseCursorPosition(1)
-            }
-        }
-    }
+    var listeningEscapeAndMouseFlag = false
     
     pidObserver.observeActivePid({ pid in
 
         active_pid = pid
-//        transformer = WindowTransformer(forWindowWithPid: active_pid)
+        //let t = WindowTransformer(forWindowWithPid: active_pid!)
+        //t?.getCurrentWindowPosition()
 //        do {
 //            try transformer?.setPositionAndSize(CGPoint(x: 0, y: 0),
 //                                                CGSize(width: 500, height: 500))
@@ -65,7 +57,7 @@ fileprivate func main() {
             return unmodifiedEvent
         }
     })
-    
+        
     let mouseInterceptor = MouseEventInterceptor(mouseEventAction: { event in
         
         let unmodifiedEvent = Unmanaged.passRetained(event)
@@ -73,26 +65,35 @@ fileprivate func main() {
         if !listeningEscapeAndMouseFlag {
             return unmodifiedEvent
         }
-        
+                
         guard let active_pid = active_pid else { return unmodifiedEvent }
         
-        if let transformer = transformer {} else {
+        if let _ = transformer {} else {
             transformer = WindowTransformer(forWindowWithPid: active_pid)
         }
         
         let eventLocation = event.location
+
+        let deltaEvent = NSEvent.init(cgEvent: event)
+        let deltaX = deltaEvent?.deltaX
+        let deltaY = deltaEvent?.deltaY
+        
+        guard let deltaX = deltaX, let deltaY = deltaY else { return nil }
+        
+        transformer!.transformWindowWithDeltas(x: deltaX, y: deltaY)
+        
         print(eventLocation)
+        
+        CGWarpMouseCursorPosition(eventLocation) // Don't move cursor
         
         return nil
     })
     
     keyInterceptor.createKeyTap()
     keyInterceptor.activateTap()
-    
+
     mouseInterceptor.createMouseTap()
     mouseInterceptor.activateTap()
-    
-    //log("\(interceptor.tapIsEnabled())")
-    
+        
     RunLoop.main.run()
 }

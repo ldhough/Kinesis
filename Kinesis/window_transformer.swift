@@ -26,11 +26,39 @@ class WindowTransformer {
         
         // Get value associated with kAXWindowsAttribute in windowData, create windowElement from this data
         var windowData:AnyObject?
+        // TODO: Use kAXFocusedWindowAttribute
         AXUIElementCopyAttributeValue(accessApp, kAXWindowsAttribute as CFString, &windowData)
         windowElement = (windowData as? [AXUIElement])?.first
         
         guard let _ = windowElement else { return nil }
         
+    }
+    
+    public func transformWindowWithDeltas(x: CGFloat, y: CGFloat) {
+        let current = getCurrentWindowPosition()
+        guard let current = current else { return }
+        let newX = current.x + x
+        let newY = current.y + y
+        do {
+            try setPosition(to: CGPoint(x: newX, y: newY))
+        } catch {
+            
+        }
+    }
+    
+    private func getCurrentWindowPosition() -> CGPoint? {
+        
+        if windowElement == nil { return nil }
+        
+        var positionData:CFTypeRef?
+        AXUIElementCopyAttributeValue(windowElement!,
+                                      kAXPositionAttribute as CFString,
+                                      &positionData)
+        
+        //let axValue = AXValueCreate(type, &positionData)
+        
+        let currentPos = axValueAsCGPoint(positionData! as! AXValue)//(axValue!)
+        return currentPos
     }
     
     public func setPositionAndSize(_ toPosition: CGPoint, _ toSize: CGSize) throws {
