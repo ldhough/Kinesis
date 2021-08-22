@@ -20,20 +20,28 @@ fileprivate func mouse_interceptor_callback(tapProxy: CGEventTapProxy,
         return unmodifiedEvent
     }
     
+    if eventType != .mouseMoved {
+        return unmodifiedEvent
+    }
+    
     let interceptor = Unmanaged<MouseEventInterceptor>
         .fromOpaque(interceptorData)
         .takeUnretainedValue()
     
-    return unmodifiedEvent
+    return interceptor.mouseEventAction(event)
 }
 
 class MouseEventInterceptor: EventInterceptor {
     
-    // Passed in and called on mouse movement event
-    fileprivate let onMove:() -> Void
+    // Passed in and called on mouse event action
+    fileprivate var mouseEventAction:(CGEvent) -> Unmanaged<CGEvent>?
     
-    init(onMove: @escaping () -> Void) {
-        self.onMove = onMove
+    init(mouseEventAction: @escaping (CGEvent) -> Unmanaged<CGEvent>?) {
+        self.mouseEventAction = mouseEventAction
+    }
+    
+    public func setMouseEventAction(to: @escaping (CGEvent) -> Unmanaged<CGEvent>?) {
+        mouseEventAction = to
     }
     
     public func createMouseTap() {

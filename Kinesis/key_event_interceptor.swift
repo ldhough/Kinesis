@@ -14,9 +14,14 @@ fileprivate func key_interceptor_callback(tapProxy: CGEventTapProxy,
                                           data: UnsafeMutableRawPointer?) -> Unmanaged<CGEvent>? {
     
     log("RECEIVED A KEY PRESS EVENT")
+    
     let unmodifiedEvent = Unmanaged.passRetained(event)
     
     guard let interceptorData = data else {
+        return unmodifiedEvent
+    }
+    
+    if eventType != .keyDown && eventType != .keyUp {
         return unmodifiedEvent
     }
     
@@ -30,32 +35,21 @@ fileprivate func key_interceptor_callback(tapProxy: CGEventTapProxy,
         .fromOpaque(interceptorData)
         .takeUnretainedValue()
 
-    if eventType == .keyDown {
-        
-        let code = event.getIntegerValueField(.keyboardEventKeycode)
-        
-        // Command + W has been pressed
-        if code == interceptor.key.rawValue && event.flags.contains(.maskCommand) {
-            interceptor.onPress()
-            return nil
-        }
-        
-    }
-    
-    return unmodifiedEvent
+    return interceptor.keyEventAction(event)
+
 }
 
 class KeyEventInterceptor: EventInterceptor {
 
     // Passed in and called on key / key combination press
-    fileprivate let onPress:() -> Void
-    fileprivate let key:Keycodes
+    fileprivate var keyEventAction:(CGEvent) -> Unmanaged<CGEvent>?
     
-    private var keyActions:[Keycodes:() -> Void] = [:]
+    init(keyEventAction: @escaping (CGEvent) -> Unmanaged<CGEvent>?) {
+        self.keyEventAction = keyEventAction
+    }
     
-    init(forKey: Keycodes, onPress: @escaping () -> Void) {
-        self.key = forKey
-        self.onPress = onPress
+    public func setKeyEventAction(to: @escaping (CGEvent) -> Unmanaged<CGEvent>?) {
+        keyEventAction = to
     }
     
     public func createKeyTap() {
