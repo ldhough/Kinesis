@@ -31,10 +31,13 @@ fileprivate func main() {
 //
 //    })
     
-    let interceptor = KeyEventInterceptor()
+    let interceptor = KeyEventInterceptor(forKey: Keycodes.w, onPress: {
+        log("COMMAND + W PRESSED")
+    })
     interceptor.createKeyTap()
     interceptor.activateKeyTap()
-    log("\(interceptor.tapIsEnabled())")
+    
+    //log("\(interceptor.tapIsEnabled())")
     
     RunLoop.main.run()
 }
