@@ -54,10 +54,8 @@ class WindowTransformer {
         AXUIElementCopyAttributeValue(windowElement!,
                                       kAXPositionAttribute as CFString,
                                       &positionData)
-        
-        //let axValue = AXValueCreate(type, &positionData)
-        
-        let currentPos = axValueAsCGPoint(positionData! as! AXValue)//(axValue!)
+                
+        let currentPos = axValueAsCGPoint(positionData! as! AXValue)
         return currentPos
     }
     
