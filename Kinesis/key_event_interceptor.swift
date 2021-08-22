@@ -8,10 +8,10 @@
 import Foundation
 
 // Should only be used as if is a member function of KeyEventInterceptor class
-fileprivate func interceptor_callback(tapProxy: CGEventTapProxy,
-                          eventType: CGEventType,
-                          event: CGEvent,
-                          data: UnsafeMutableRawPointer?) -> Unmanaged<CGEvent>? {
+fileprivate func key_interceptor_callback(tapProxy: CGEventTapProxy,
+                                          eventType: CGEventType,
+                                          event: CGEvent,
+                                          data: UnsafeMutableRawPointer?) -> Unmanaged<CGEvent>? {
     
     log("RECEIVED A KEY PRESS EVENT")
     let unmodifiedEvent = Unmanaged.passRetained(event)
@@ -37,6 +37,7 @@ fileprivate func interceptor_callback(tapProxy: CGEventTapProxy,
         // Command + W has been pressed
         if code == interceptor.key.rawValue && event.flags.contains(.maskCommand) {
             interceptor.onPress()
+            return nil
         }
         
     }
@@ -44,34 +45,17 @@ fileprivate func interceptor_callback(tapProxy: CGEventTapProxy,
     return unmodifiedEvent
 }
 
-//class EventInterceptor {
-//    
-//}
+class KeyEventInterceptor: EventInterceptor {
 
-class KeyEventInterceptor {
-    
-    private var port:CFMachPort?
     // Passed in and called on key / key combination press
     fileprivate let onPress:() -> Void
     fileprivate let key:Keycodes
     
+    private var keyActions:[Keycodes:() -> Void] = [:]
+    
     init(forKey: Keycodes, onPress: @escaping () -> Void) {
         self.key = forKey
         self.onPress = onPress
-    }
-    
-    // Check if listening for key press events
-    public func tapIsEnabled() -> Bool {
-        guard let port = port else { return false }
-        return CGEvent.tapIsEnabled(tap: port)
-    }
-    
-    // Activate listening for key press events
-    public func activateKeyTap() {
-        guard let port = port else { return }
-        CGEvent.tapEnable(tap: port, enable: true)
-        let runLoopSrc = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, port, 0)
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSrc, .commonModes)
     }
     
     public func createKeyTap() {
@@ -83,19 +67,9 @@ class KeyEventInterceptor {
                                  place: CGEventTapPlacement.headInsertEventTap, // Insert before other taps
                                  options: CGEventTapOptions.defaultTap, // Can modify events
                                  eventsOfInterest: mask,
-                                 callback: interceptor_callback, // fn to run on event
+                                 callback: key_interceptor_callback, // fn to run on event
                                  userInfo: self_ptr)
         
-    }
-    
-    // Stop listening for key press event
-    public func disableKeyTap() {
-        guard let port = port else { return }
-        CGEvent.tapEnable(tap: port, enable: false)
-    }
-    
-    deinit {
-        disableKeyTap()
     }
     
 }

@@ -35,7 +35,7 @@ fileprivate func main() {
         log("COMMAND + W PRESSED")
     })
     interceptor.createKeyTap()
-    interceptor.activateKeyTap()
+    interceptor.activateTap()
     
     //log("\(interceptor.tapIsEnabled())")
     
