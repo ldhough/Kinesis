@@ -32,3 +32,12 @@ func doAndReturn<T>(toReturn: inout T, action: () -> Void) -> T {
     action()
     return toReturn
 }
+
+extension Int64 {
+    
+    // Compares a keycode represented as Int64 to Keycode enum value
+    func equals(_ code: Keycodes) -> Bool {
+        return self == code.rawValue
+    }
+    
+}

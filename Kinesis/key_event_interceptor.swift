@@ -13,8 +13,6 @@ fileprivate func key_interceptor_callback(tapProxy: CGEventTapProxy,
                                           event: CGEvent,
                                           data: UnsafeMutableRawPointer?) -> Unmanaged<CGEvent>? {
     
-    log("RECEIVED A KEY PRESS EVENT")
-    
     let unmodifiedEvent = Unmanaged.passRetained(event)
     
     guard let interceptorData = data else {

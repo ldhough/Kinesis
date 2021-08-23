@@ -56,6 +56,7 @@ class KinesisWindowManager {
      Passed to and called from keyInterceptor:KeyEventInterceptor object.
      */
     private func keyEventAction(event: CGEvent) -> Unmanaged<CGEvent>? {
+        
         let unmodifiedEvent = Unmanaged.passRetained(event)
         let code = event.getIntegerValueField(.keyboardEventKeycode)
         
@@ -65,8 +66,14 @@ class KinesisWindowManager {
             self.listeningEscapeAndMouseFlag = true
             return nil
         
+        // Right arrow pressed while in window management mode
+        } else if code.equals(.right)  {
+            
+            
+            return nil
+            
         // Escape has been pressed while in window management mode
-        } else if code == Keycodes.esc.rawValue && self.listeningEscapeAndMouseFlag {
+        } else if code.equals(.esc) && self.listeningEscapeAndMouseFlag {
             
             self.listeningEscapeAndMouseFlag = false
             self.transformer = nil
@@ -82,6 +89,7 @@ class KinesisWindowManager {
      Passed to and called from mouseInterceptor:MouseEventInterceptor object.
      */
     private func mouseEventAction(event: CGEvent) -> Unmanaged<CGEvent>? {
+        
         let unmodifiedEvent = Unmanaged.passRetained(event)
         
         if !listeningEscapeAndMouseFlag {
