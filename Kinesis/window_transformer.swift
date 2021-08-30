@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import AppKit
 
 enum TransformerError: String, Error {
     
@@ -34,19 +35,116 @@ class WindowTransformer {
         
     }
     
-    public func transformWindowWithDeltas(x: CGFloat, y: CGFloat) {
-        let current = getCurrentWindowPosition()
+    public func transformWindowWithDeltas(x: CGFloat, y: CGFloat, forEvent: CGEvent) {
+        let current = getCurrentWindowPosition(event: forEvent)
         guard let current = current else { return }
         let newX = current.x + x
         let newY = current.y + y
         do {
             try setPosition(to: CGPoint(x: newX, y: newY))
         } catch {
-            
+            print("CAUGHT ERROR IN TRANSFORMWINDOWWITHDELTAS")
         }
     }
     
-    private func getCurrentWindowPosition() -> CGPoint? {
+    private static func getDisplayList() {
+//        let screens = NSScreen.screens
+//        print(screens)
+//        for screen in screens {
+//            print("= = = = = = = = = =")
+//            let frame = screen.visibleFrame
+//            print("Max X: \(frame.maxX)")
+//            print("Max Y: \(frame.maxY)")
+//            print("Min X: \(frame.minX)")
+//            print("Min Y: \(frame.minY)")
+//            let wholeFrame = screen.frame
+//            print("Max X: \(wholeFrame.maxX)")
+//            print("Max Y: \(wholeFrame.maxY)")
+//            print("Min X: \(wholeFrame.minX)")
+//            print("Min Y: \(wholeFrame.minY)")
+//            //print(frame.)
+//        }
+//        print("* * * * * * * * * * *")
+//        let ms = NSScreen.main!
+//        let frame2 = ms.visibleFrame
+//        print("Max X: \(frame2.maxX)")
+//        print("Max Y: \(frame2.maxY)")
+//        print("Min X: \(frame2.minX)")
+//        print("Min Y: \(frame2.minY)")
+//        let frame = ms.frame
+//        print("Max X: \(frame.maxX)")
+//        print("Max Y: \(frame.maxY)")
+//        print("Min X: \(frame.minX)")
+//        print("Min Y: \(frame.minY)")
+        let max:UInt32 = 16
+        var displays = Array<CGDirectDisplayID>(repeating: 0, count: Int(max))
+        var onlineDisplaysCount:UInt32 = 0
+        let err = CGGetOnlineDisplayList(max,
+                                         &displays,
+                                         &onlineDisplaysCount)
+        
+        if err != .success {
+            log("Error getting list of online displays: \(err)")
+        }
+        
+        for display in displays[0 ..< Int(onlineDisplaysCount)] {
+            print(display)
+            print(CGDisplayBounds(display))
+        }
+        
+    }
+    
+    // Returns the index of screen 0 ... N the window is contained primarily within
+    private static func withinScreenN(windowPoint: CGPoint) -> Int {
+        
+        // Arbitrary but like who has more than 16 displays?
+        let maxDisplays:UInt32 = 16
+        var onlineDisplays = [CGDirectDisplayID](repeating: 0, count: Int(maxDisplays))
+        var onlineDisplaysCount:UInt32 = 0
+        
+        let err = CGGetOnlineDisplayList(maxDisplays, &onlineDisplays, &onlineDisplaysCount)
+        
+        if err != .success {
+            log("Error getting list of online displays: \(err)")
+        }
+        
+        for i in 0 ..< Int(onlineDisplaysCount) {
+            
+            let displayId = onlineDisplays[i]
+            let displayBounds = CGDisplayBounds(displayId)
+            let windowInsideDisplay = NSPointInRect(windowPoint, displayBounds)
+            
+            if windowInsideDisplay {
+                return i
+            }
+            
+        }
+        
+        return -1
+//        let screens = NSScreen.screens
+//
+//        for i in 0 ..< screens.count {
+//            let screenFrame = screens[i].frame
+//            let windowInside = NSPointInRect(windowPoint, screenFrame)
+//            if windowInside {
+//                return i
+//            }
+//        }
+//
+//        return -1
+    }
+    
+    private func getCurrentWindowSize() -> CGSize? {
+        if windowElement == nil { return nil }
+        var sizeData:CFTypeRef?
+        AXUIElementCopyAttributeValue(windowElement!, kAXSizeAttribute as CFString, &sizeData)
+        let currentSize = axValueAsCGSize(sizeData! as! AXValue)
+        return currentSize
+    }
+    
+    private func getCurrentWindowPosition(event: CGEvent) -> CGPoint? {
+
+        //WindowTransformer.getDisplayList()
         
         if windowElement == nil { return nil }
         
@@ -56,6 +154,11 @@ class WindowTransformer {
                                       &positionData)
                 
         let currentPos = axValueAsCGPoint(positionData! as! AXValue)
+        
+        //print(currentPos)
+        print(WindowTransformer.withinScreenN(windowPoint: currentPos))
+        //print(NSScreen.main)
+        
         return currentPos
     }
     
@@ -86,8 +189,42 @@ class WindowTransformer {
             throw TransformerError.setSizeError
         }
         AXUIElementSetAttributeValue(windowElement!, kAXSizeAttribute as CFString, size!)
-        
+        //let x = kAXColorWellRole
     }
     
     
 }
+
+
+//        var currentScreen:NSScreen?
+//        let mouseLoc:NSPoint = event.location
+//        let screens:[NSScreen] = NSScreen.screens
+//        var screenWithMouseFound = false
+//        var i = 0
+//        while !screenWithMouseFound {
+//            let screen = screens[i]
+//            if NSMouseInRect(mouseLoc, screen.frame, false) {
+//                currentScreen = screen
+//                screenWithMouseFound = true
+//            }
+//            i += 1
+//        }
+//        print(currentScreen)
+
+/*
+ Check which screen the window is currently in
+ */
+//        var currentScreen:NSScreen?
+//        let windowLoc:NSPoint = currentPos
+//        let screens:[NSScreen] = NSScreen.screens
+//        var screenWithMouseFound = false
+//        var i = 0
+//        while !screenWithMouseFound {
+//            let screen = screens[i]
+//            if NSPointInRect(windowLoc, screen.frame) {
+//                currentScreen = screen
+//                screenWithMouseFound = true
+//            }
+//            i += 1
+//        }
+//        print(currentScreen)

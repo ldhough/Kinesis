@@ -61,7 +61,7 @@ class KinesisWindowManager {
         let code = event.getIntegerValueField(.keyboardEventKeycode)
         
         // Command + W has been pressed
-        if code == Keycodes.w.rawValue && event.flags.contains(.maskCommand) {
+        if code.equals(.w) && event.flags.contains(.maskCommand) {
             
             self.listeningEscapeAndMouseFlag = true
             return nil
@@ -69,9 +69,16 @@ class KinesisWindowManager {
         // Right arrow pressed while in window management mode
         } else if code.equals(.right)  {
             
+            return nil
+        } else if code.equals(.left) {
             
             return nil
+        } else if code.equals(.up) {
             
+            return nil
+        } else if code.equals(.down) {
+            
+            return nil
         // Escape has been pressed while in window management mode
         } else if code.equals(.esc) && self.listeningEscapeAndMouseFlag {
             
@@ -111,7 +118,7 @@ class KinesisWindowManager {
         guard let deltaX = deltaX, let deltaY = deltaY else { return nil }
         
         // Attempt to move window based on mouse events
-        transformer?.transformWindowWithDeltas(x: deltaX, y: deltaY)
+        transformer?.transformWindowWithDeltas(x: deltaX, y: deltaY, forEvent: event)
         
         CGWarpMouseCursorPosition(eventLocation) // Don't move cursor
         

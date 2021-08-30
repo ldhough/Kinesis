@@ -7,11 +7,18 @@
 
 import Foundation
 
+//var lastTime:Int = Int.max
+
 // Should only be used as if is a member function of MouseEventInterceptor class
 fileprivate func mouse_interceptor_callback(tapProxy: CGEventTapProxy,
                                             eventType: CGEventType,
                                             event: CGEvent,
                                             data: UnsafeMutableRawPointer?) -> Unmanaged<CGEvent>? {
+    
+//    let timeNow:Int = currentTimeInMilliSeconds()
+//    let diff = timeNow - lastTime
+//    print("TIME DIFF IN MS BETWEEN MIC CALL: \(diff)")
+//    lastTime = timeNow
     
     let unmodifiedEvent = Unmanaged.passRetained(event)
     
