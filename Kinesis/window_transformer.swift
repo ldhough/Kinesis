@@ -29,9 +29,11 @@ class WindowTransformer {
         var windowData:AnyObject?
         // TODO: Use kAXFocusedWindowAttribute
         AXUIElementCopyAttributeValue(accessApp, kAXWindowsAttribute as CFString, &windowData)
+//        AXUIElementCopyAttributeValue(accessApp, kAXFocusedWindowAttribute as CFString, &windowData)
         windowElement = (windowData as? [AXUIElement])?.first
         
         guard let _ = windowElement else { return nil }
+
         
     }
     
@@ -40,6 +42,8 @@ class WindowTransformer {
         guard let current = current else { return }
         let newX = current.x + x
         let newY = current.y + y
+//        let newX = x
+//        let newY = y
         do {
             try setPosition(to: CGPoint(x: newX, y: newY))
         } catch {
@@ -47,55 +51,8 @@ class WindowTransformer {
         }
     }
     
-    private static func getDisplayList() {
-//        let screens = NSScreen.screens
-//        print(screens)
-//        for screen in screens {
-//            print("= = = = = = = = = =")
-//            let frame = screen.visibleFrame
-//            print("Max X: \(frame.maxX)")
-//            print("Max Y: \(frame.maxY)")
-//            print("Min X: \(frame.minX)")
-//            print("Min Y: \(frame.minY)")
-//            let wholeFrame = screen.frame
-//            print("Max X: \(wholeFrame.maxX)")
-//            print("Max Y: \(wholeFrame.maxY)")
-//            print("Min X: \(wholeFrame.minX)")
-//            print("Min Y: \(wholeFrame.minY)")
-//            //print(frame.)
-//        }
-//        print("* * * * * * * * * * *")
-//        let ms = NSScreen.main!
-//        let frame2 = ms.visibleFrame
-//        print("Max X: \(frame2.maxX)")
-//        print("Max Y: \(frame2.maxY)")
-//        print("Min X: \(frame2.minX)")
-//        print("Min Y: \(frame2.minY)")
-//        let frame = ms.frame
-//        print("Max X: \(frame.maxX)")
-//        print("Max Y: \(frame.maxY)")
-//        print("Min X: \(frame.minX)")
-//        print("Min Y: \(frame.minY)")
-        let max:UInt32 = 16
-        var displays = Array<CGDirectDisplayID>(repeating: 0, count: Int(max))
-        var onlineDisplaysCount:UInt32 = 0
-        let err = CGGetOnlineDisplayList(max,
-                                         &displays,
-                                         &onlineDisplaysCount)
-        
-        if err != .success {
-            log("Error getting list of online displays: \(err)")
-        }
-        
-        for display in displays[0 ..< Int(onlineDisplaysCount)] {
-            print(display)
-            print(CGDisplayBounds(display))
-        }
-        
-    }
-    
     // Returns the index of screen 0 ... N the window is contained primarily within
-    private static func withinScreenN(windowPoint: CGPoint) -> Int {
+    private static func withinScreenN(windowPoint: CGPoint) -> DisplayData? {
         
         // Arbitrary but like who has more than 16 displays?
         let maxDisplays:UInt32 = 16
@@ -115,23 +72,15 @@ class WindowTransformer {
             let windowInsideDisplay = NSPointInRect(windowPoint, displayBounds)
             
             if windowInsideDisplay {
-                return i
+                return DisplayData(index: i, frame: displayBounds)
             }
             
         }
         
-        return -1
-//        let screens = NSScreen.screens
-//
-//        for i in 0 ..< screens.count {
-//            let screenFrame = screens[i].frame
-//            let windowInside = NSPointInRect(windowPoint, screenFrame)
-//            if windowInside {
-//                return i
-//            }
-//        }
-//
-//        return -1
+        // TODO: If outside visible bounds (left of leftmost display),
+        // possibly return closest display instead of -1?
+        
+        return nil
     }
     
     private func getCurrentWindowSize() -> CGSize? {
@@ -143,8 +92,6 @@ class WindowTransformer {
     }
     
     private func getCurrentWindowPosition(event: CGEvent) -> CGPoint? {
-
-        //WindowTransformer.getDisplayList()
         
         if windowElement == nil { return nil }
         
@@ -155,9 +102,11 @@ class WindowTransformer {
                 
         let currentPos = axValueAsCGPoint(positionData! as! AXValue)
         
-        //print(currentPos)
-        print(WindowTransformer.withinScreenN(windowPoint: currentPos))
-        //print(NSScreen.main)
+        let display = WindowTransformer.withinScreenN(windowPoint: currentPos)
+        guard let display = display else { return currentPos }
+        let height = display.frame.height
+        let width = display.frame.width
+        //print("Dimensions of current display are w: \(width), h: \(height)")
         
         return currentPos
     }
@@ -169,6 +118,7 @@ class WindowTransformer {
         
     }
     
+    var lastFinished = true
     
     public func setPosition(to: CGPoint) throws {
         
@@ -177,8 +127,13 @@ class WindowTransformer {
         if position == nil {
             throw TransformerError.setPositionError
         }
-        AXUIElementSetAttributeValue(windowElement!, kAXPositionAttribute as CFString, position!)
-    
+
+        let err = AXUIElementSetAttributeValue(self.windowElement!, kAXPositionAttribute as CFString, position!)
+        if err != .success {
+            print("AXError moving window \(err)")
+        }
+        
+
     }
     
     public func setSize(to: CGSize) throws {
@@ -188,43 +143,29 @@ class WindowTransformer {
         if size == nil {
             throw TransformerError.setSizeError
         }
-        AXUIElementSetAttributeValue(windowElement!, kAXSizeAttribute as CFString, size!)
+        let err = AXUIElementSetAttributeValue(windowElement!, kAXSizeAttribute as CFString, size!)
+        if err != .success {
+            print("AXError resizing window \(err)")
+        }
         //let x = kAXColorWellRole
     }
     
+    private static func getDisplayList() -> [CGDirectDisplayID] {
+
+        let max:UInt32 = 16
+        var displays = [CGDirectDisplayID](repeating: 0, count: Int(max))
+        var onlineDisplaysCount:UInt32 = 0
+        let err = CGGetOnlineDisplayList(max,
+                                         &displays,
+                                         &onlineDisplaysCount)
+        
+        if err != .success {
+            log("Error getting list of online displays: \(err)")
+            return []
+        }
+        
+        return displays
+        
+    }
     
 }
-
-
-//        var currentScreen:NSScreen?
-//        let mouseLoc:NSPoint = event.location
-//        let screens:[NSScreen] = NSScreen.screens
-//        var screenWithMouseFound = false
-//        var i = 0
-//        while !screenWithMouseFound {
-//            let screen = screens[i]
-//            if NSMouseInRect(mouseLoc, screen.frame, false) {
-//                currentScreen = screen
-//                screenWithMouseFound = true
-//            }
-//            i += 1
-//        }
-//        print(currentScreen)
-
-/*
- Check which screen the window is currently in
- */
-//        var currentScreen:NSScreen?
-//        let windowLoc:NSPoint = currentPos
-//        let screens:[NSScreen] = NSScreen.screens
-//        var screenWithMouseFound = false
-//        var i = 0
-//        while !screenWithMouseFound {
-//            let screen = screens[i]
-//            if NSPointInRect(windowLoc, screen.frame) {
-//                currentScreen = screen
-//                screenWithMouseFound = true
-//            }
-//            i += 1
-//        }
-//        print(currentScreen)

@@ -21,7 +21,8 @@ class PidObserver {
 
             let info = notification.userInfo
             let app = info?[AnyHashable("NSWorkspaceApplicationKey")] as? NSRunningApplication
-            
+//            app.
+            //app.ac
             guard let pid = app?.processIdentifier else {
                 usePid(nil)
                 return

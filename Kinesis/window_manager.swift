@@ -67,16 +67,16 @@ class KinesisWindowManager {
             return nil
         
         // Right arrow pressed while in window management mode
-        } else if code.equals(.right)  {
+        } else if code.equals(.right) && self.listeningEscapeAndMouseFlag  {
             
             return nil
-        } else if code.equals(.left) {
+        } else if code.equals(.left) && self.listeningEscapeAndMouseFlag {
             
             return nil
-        } else if code.equals(.up) {
+        } else if code.equals(.up) && self.listeningEscapeAndMouseFlag {
             
             return nil
-        } else if code.equals(.down) {
+        } else if code.equals(.down) && self.listeningEscapeAndMouseFlag {
             
             return nil
         // Escape has been pressed while in window management mode
@@ -98,31 +98,52 @@ class KinesisWindowManager {
     private func mouseEventAction(event: CGEvent) -> Unmanaged<CGEvent>? {
         
         let unmodifiedEvent = Unmanaged.passRetained(event)
-        
+
         if !listeningEscapeAndMouseFlag {
             return unmodifiedEvent
         }
                 
         guard let activePid = activePid else { return unmodifiedEvent }
-        
+
         if let _ = transformer {} else {
             transformer = WindowTransformer(forWindowWithPid: activePid)
         }
-        
+
         let eventLocation = event.location
 
         let deltaEvent = NSEvent.init(cgEvent: event)
         let deltaX = deltaEvent?.deltaX
         let deltaY = deltaEvent?.deltaY
-        
+
         guard let deltaX = deltaX, let deltaY = deltaY else { return nil }
-        
+
+        //print("Mouse delta is x: \(deltaX) & y: \(deltaY)")
+
         // Attempt to move window based on mouse events
-        transformer?.transformWindowWithDeltas(x: deltaX, y: deltaY, forEvent: event)
-        
+        transformer?.transformWindowWithDeltas(x: deltaX, y: deltaY, forEvent: event) 
+
         CGWarpMouseCursorPosition(eventLocation) // Don't move cursor
-        
+
         return nil
+    }
+    
+    private static func halfCenterPointsVertical(displays: [DisplayData]) -> [CGPoint] {
+        var points:[CGPoint] = []
+        for display in displays {
+            let startPoint = CGPoint(x: display.frame.minX, y: display.frame.minY)
+            
+            let w = display.frame.width
+            let h = display.frame.height
+            let centerVertical = h / 2.0
+            
+            let quarterWidth = w / 4.0
+            let centerHalfLeftHorizontal = startPoint.x + quarterWidth
+            let centerHalfRightHorizontal = startPoint.x + (3.0 * quarterWidth)
+            
+            points.append(CGPoint(x: centerHalfLeftHorizontal, y: centerVertical))
+            points.append(CGPoint(x: centerHalfRightHorizontal, y: centerVertical))
+        }
+        return points
     }
     
 }

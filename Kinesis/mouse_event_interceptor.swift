@@ -15,10 +15,16 @@ fileprivate func mouse_interceptor_callback(tapProxy: CGEventTapProxy,
                                             event: CGEvent,
                                             data: UnsafeMutableRawPointer?) -> Unmanaged<CGEvent>? {
     
+    
 //    let timeNow:Int = currentTimeInMilliSeconds()
 //    let diff = timeNow - lastTime
 //    print("TIME DIFF IN MS BETWEEN MIC CALL: \(diff)")
 //    lastTime = timeNow
+    //print(currentTimeInMilliSeconds())
+    
+    //sleep(100)
+    
+    let start = currentTimeInMilliSeconds()
     
     let unmodifiedEvent = Unmanaged.passRetained(event)
     
@@ -34,6 +40,12 @@ fileprivate func mouse_interceptor_callback(tapProxy: CGEventTapProxy,
         .fromOpaque(interceptorData)
         .takeUnretainedValue()
     
+//    let actionResult = interceptor.mouseEventAction(event)
+    let end = currentTimeInMilliSeconds()
+    
+    //print("TIME TO EXECUTE IS \(end - start)")
+    
+//    return actionResult
     return interceptor.mouseEventAction(event)
 }
 
@@ -53,7 +65,7 @@ class MouseEventInterceptor: EventInterceptor {
     public func createMouseTap() {
         let self_ptr = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque()) // void ptr to self
         let mask:CGEventMask = CGEventMask(1 << CGEventType.mouseMoved.rawValue) // Mouse event
-    
+
         port = CGEvent.tapCreate(tap: CGEventTapLocation.cghidEventTap, // Tap at place where system events enter window server
                                  place: CGEventTapPlacement.headInsertEventTap, // Insert before other taps
                                  options: CGEventTapOptions.defaultTap, // Can modify events
@@ -61,5 +73,9 @@ class MouseEventInterceptor: EventInterceptor {
                                  callback: mouse_interceptor_callback, // fn to run on event
                                  userInfo: self_ptr)
     }
+    
+//    deinit {
+//        print("THIS BROKE")
+//    }
     
 }

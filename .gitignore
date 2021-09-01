@@ -1,1 +1,3 @@
 *.xcodeproj
+*.plist
+*.entitlements

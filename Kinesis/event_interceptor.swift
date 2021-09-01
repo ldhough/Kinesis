@@ -32,6 +32,7 @@ class EventInterceptor {
     }
     
     deinit {
+        print("THIS CALLED")
         disableTap()
     }
     
