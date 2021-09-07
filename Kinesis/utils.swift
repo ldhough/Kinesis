@@ -47,3 +47,16 @@ func currentTimeInMilliSeconds() -> Int {
     let since1970 = currentDate.timeIntervalSince1970
     return Int(since1970 * 1000)
 }
+
+extension Array {
+    
+    func mapWithIndex<T>(_ with: (Int, Element) -> T) -> [T] {
+        var new:[T] = []
+        for i in 0 ..< self.count {
+            let element = self[i]
+            new.append(with(i, element))
+        }
+        return new
+    }
+    
+}

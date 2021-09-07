@@ -8,6 +8,8 @@
 import Foundation
 import AppKit
 
+fileprivate typealias KWM = KinesisWindowManager
+
 enum WindowManagerError: String, Error {
     case other = "Window manager error!"
 }
@@ -63,11 +65,38 @@ class KinesisWindowManager {
         // Command + W has been pressed
         if code.equals(.w) && event.flags.contains(.maskCommand) {
             
+            log("CMD + W PRESSED")
+            
             self.listeningEscapeAndMouseFlag = true
             return nil
         
         // Right arrow pressed while in window management mode
         } else if code.equals(.right) && self.listeningEscapeAndMouseFlag  {
+            
+            let panels = KWM.getDisplayListData()
+            let hcpv = KWM.halfCenterPointsVertical(displays: panels)
+            
+            let displaySize = panels[0].frame.size
+            let windowSize = CGSize(width: displaySize.width / 2.0, height: displaySize.height)
+            do {
+                try transformer?.setSize(to: windowSize)
+                try transformer?.setPosition(to: CGPoint(x: displaySize.width / 2.0, y: 0))
+            } catch {
+                log("FAILED: transforming based on arrow key")
+            }
+            
+//            let currentWindowCenterPoint = {
+//                let currLocationTopLeft = transformer?.getCurrentWindowPosition()
+//                let currentSize = transformer?.getCurrentWindowSize()
+//            }()
+//
+//            let closest:CGPoint = {
+//                var clt = CGPoint(x: CGFloat.greatestFiniteMagnitude, y: 0)
+//                for point in hcpv {
+//
+//                }
+//                return CGPoint(x: 0, y: 0)
+//            }()
             
             return nil
         } else if code.equals(.left) && self.listeningEscapeAndMouseFlag {
@@ -122,6 +151,7 @@ class KinesisWindowManager {
         // Attempt to move window based on mouse events
         transformer?.transformWindowWithDeltas(x: deltaX, y: deltaY, forEvent: event) 
 
+        // Try alt?
         CGWarpMouseCursorPosition(eventLocation) // Don't move cursor
 
         return nil
@@ -146,4 +176,29 @@ class KinesisWindowManager {
         return points
     }
     
+    private static func getDisplayList() -> [CGDirectDisplayID] {
+
+        let max:UInt32 = 16
+        var displays = [CGDirectDisplayID](repeating: 0, count: Int(max))
+        var onlineDisplaysCount:UInt32 = 0
+        let err = CGGetOnlineDisplayList(max,
+                                         &displays,
+                                         &onlineDisplaysCount)
+        
+        if err != .success {
+            log("Error getting list of online displays: \(err)")
+            return []
+        }
+        
+        return displays
+        
+    }
+    
+    public static func getDisplayListData() -> [DisplayData] {
+        KWM.getDisplayList().mapWithIndex({ idx, displayId in
+            DisplayData(index: idx, frame: CGDisplayBounds(displayId))
+        })
+    }
+    
 }
+

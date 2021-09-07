@@ -38,7 +38,7 @@ class WindowTransformer {
     }
     
     public func transformWindowWithDeltas(x: CGFloat, y: CGFloat, forEvent: CGEvent) {
-        let current = getCurrentWindowPosition(event: forEvent)
+        let current = getCurrentWindowPosition()
         guard let current = current else { return }
         let newX = current.x + x
         let newY = current.y + y
@@ -83,7 +83,7 @@ class WindowTransformer {
         return nil
     }
     
-    private func getCurrentWindowSize() -> CGSize? {
+    public func getCurrentWindowSize() -> CGSize? {
         if windowElement == nil { return nil }
         var sizeData:CFTypeRef?
         AXUIElementCopyAttributeValue(windowElement!, kAXSizeAttribute as CFString, &sizeData)
@@ -91,7 +91,7 @@ class WindowTransformer {
         return currentSize
     }
     
-    private func getCurrentWindowPosition(event: CGEvent) -> CGPoint? {
+    public func getCurrentWindowPosition() -> CGPoint? {
         
         if windowElement == nil { return nil }
         
@@ -104,9 +104,8 @@ class WindowTransformer {
         
         let display = WindowTransformer.withinScreenN(windowPoint: currentPos)
         guard let display = display else { return currentPos }
-        let height = display.frame.height
-        let width = display.frame.width
-        //print("Dimensions of current display are w: \(width), h: \(height)")
+        
+        print("Dimensions of current display are w: \(display.frame.width), h: \(display.frame.height)")
         
         return currentPos
     }
@@ -127,8 +126,9 @@ class WindowTransformer {
         if position == nil {
             throw TransformerError.setPositionError
         }
-
+        
         let err = AXUIElementSetAttributeValue(self.windowElement!, kAXPositionAttribute as CFString, position!)
+        
         if err != .success {
             print("AXError moving window \(err)")
         }
@@ -148,24 +148,6 @@ class WindowTransformer {
             print("AXError resizing window \(err)")
         }
         //let x = kAXColorWellRole
-    }
-    
-    private static func getDisplayList() -> [CGDirectDisplayID] {
-
-        let max:UInt32 = 16
-        var displays = [CGDirectDisplayID](repeating: 0, count: Int(max))
-        var onlineDisplaysCount:UInt32 = 0
-        let err = CGGetOnlineDisplayList(max,
-                                         &displays,
-                                         &onlineDisplaysCount)
-        
-        if err != .success {
-            log("Error getting list of online displays: \(err)")
-            return []
-        }
-        
-        return displays
-        
     }
     
 }

@@ -12,6 +12,7 @@ class PidObserver {
     
     private let notificationCenter = NSWorkspace.shared.notificationCenter
     private let activeNotification = NSWorkspace.didActivateApplicationNotification
+    //private let notif = NSWorkspace.
     private let queue = OperationQueue.main
 
     // Listen for notifications indicating an application has been focused
