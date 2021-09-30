@@ -18,30 +18,37 @@ class KinesisWindowManager {
     
     private let pidObserver:PidObserver
     private var transformer:WindowTransformer?
-    private var listeningEscapeAndMouseFlag = false {
-        didSet {
-            log("listeningEscapeAndMouseFlag set to \(listeningEscapeAndMouseFlag)")
-        }
-    }
+    private var listeningEscapeAndMouseFlag = false
     
     private var keyInterceptor:KeyEventInterceptor?
     private var mouseInterceptor:MouseEventInterceptor?
     
-    private var activePid:pid_t? {
-        didSet {
-            // Reset when "focused" window changes
-            currentWindowPoint = nil
-        }
-    }
+    private var activePid:pid_t?
+    
+    /*
+     Window position updates from cursor events happen extremely rapidly.  When multiple
+     displays are active, updates can take long enough to cause inconsistent and sluggish
+     window updates that may eventually kill the event interceptor completely. Offloading
+     the IPC that happens with the windows of other processes to another thread prevents
+     the interceptor from dying but the window updates need to be locked or window movement
+     is very jittery.
+     */
+    private var positionUpdateLock:pthread_mutex_t
+    private let positionUpdateQueue:DispatchQueue
     
     init() {
+        self.positionUpdateLock = pthread_mutex_t()
+        pthread_mutex_init(&positionUpdateLock, nil)
+        self.positionUpdateQueue = DispatchQueue(label: "positionUpdateQueue", qos: .userInteractive, attributes: .concurrent)
         self.pidObserver = PidObserver()
         self.keyInterceptor = KeyEventInterceptor(keyEventAction: self.keyEventAction)
         self.mouseInterceptor = MouseEventInterceptor(mouseEventAction: self.mouseEventAction)
-        pthread_mutex_init(&lock, nil)
     }
     
-    // Activates the window manager, returns true if successful, false if not
+    /*
+     Activates window manager
+     returns: true if successful, false if unsuccessful
+     */
     public func start() -> Bool {
         
         guard let keyInterceptor = keyInterceptor, let mouseInterceptor = mouseInterceptor else {
@@ -79,17 +86,13 @@ class KinesisWindowManager {
         
         // Command + W has been pressed
         if code.equals(.w) && event.flags.contains(.maskCommand) {
-            
-            log("CMD + W PRESSED")
-            
+                        
             self.listeningEscapeAndMouseFlag = true
             return nil
         
         // Right arrow pressed while in window management mode
         } else if code.equals(.right) && self.listeningEscapeAndMouseFlag  {
-            
-            log("RIGHT PRESSED")
-            
+                        
             let panels = KWM.getDisplayListData()
             let hcpv = KWM.halfCenterPointsVertical(displays: panels)
             
@@ -130,7 +133,6 @@ class KinesisWindowManager {
             
             self.listeningEscapeAndMouseFlag = false
             self.transformer = nil
-            self.currentWindowPoint = nil
             return nil
         // Something this program does not care about happens
         } else {
@@ -138,7 +140,6 @@ class KinesisWindowManager {
         }
     }
     
-    var currentWindowPoint:CGPoint? = nil
     /*
      Describes the behavior of the window manager on a mouse moved event.
      Passed to and called from mouseInterceptor:MouseEventInterceptor object.
@@ -166,27 +167,17 @@ class KinesisWindowManager {
 
         guard let deltaX = deltaX, let deltaY = deltaY else { return nil }
 
-        //print("Mouse delta is x: \(deltaX) & y: \(deltaY)")
-
         // Attempt to move window based on mouse events
-        let q = DispatchQueue(label: "serial")//DispatchQueue(label: "hi", qos: .userInteractive, attributes: .concurrent)
-        q.async {
-            if 0 != pthread_mutex_trylock(&self.lock) {
-                print("no lock")
-                return
-            }
-            print("got lock")
-            self.currentWindowPoint = self.transformer?.transformWindowWithDeltas(x: deltaX, y: deltaY, forEvent: event, atPoint: self.currentWindowPoint)
-            pthread_mutex_unlock(&self.lock)
+        positionUpdateQueue.async {
+            guard 0 == pthread_mutex_trylock(&self.positionUpdateLock) else { return }
+            self.transformer?.transformWindowWithDeltas(x: deltaX, y: deltaY, forEvent: event)
+            pthread_mutex_unlock(&self.positionUpdateLock)
         }
 
-        // Try alt?
         CGWarpMouseCursorPosition(eventLocation) // Don't move cursor
 
         return nil
     }
-    var lock = pthread_mutex_t()
-    
     
     private static func halfCenterPointsVertical(displays: [DisplayData]) -> [CGPoint] {
         var points:[CGPoint] = []

@@ -19,7 +19,6 @@ fileprivate func main() {
         log("Error starting Kinesis window manager!")
         return
     }
-    //let x = NSRect.fill(NSMakeRect(0.0, 0.0, 4.0, 4.0))
         
     RunLoop.main.run()
 }

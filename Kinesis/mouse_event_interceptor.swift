@@ -7,24 +7,11 @@
 
 import Foundation
 
-//var lastTime:Int = Int.max
-
 // Should only be used as if is a member function of MouseEventInterceptor class
 fileprivate func mouse_interceptor_callback(tapProxy: CGEventTapProxy,
                                             eventType: CGEventType,
                                             event: CGEvent,
                                             data: UnsafeMutableRawPointer?) -> Unmanaged<CGEvent>? {
-    
-    
-//    let timeNow:Int = currentTimeInMilliSeconds()
-//    let diff = timeNow - lastTime
-//    print("TIME DIFF IN MS BETWEEN MIC CALL: \(diff)")
-//    lastTime = timeNow
-    //print(currentTimeInMilliSeconds())
-    
-    //sleep(100)
-    
-    let start = currentTimeInMilliSeconds()
     
     let unmodifiedEvent = Unmanaged.passRetained(event)
     
@@ -40,12 +27,6 @@ fileprivate func mouse_interceptor_callback(tapProxy: CGEventTapProxy,
         .fromOpaque(interceptorData)
         .takeUnretainedValue()
     
-//    let actionResult = interceptor.mouseEventAction(event)
-    let end = currentTimeInMilliSeconds()
-    
-    //print("TIME TO EXECUTE IS \(end - start)")
-    
-//    return actionResult
     return interceptor.mouseEventAction(event)
 }
 
@@ -73,9 +54,5 @@ class MouseEventInterceptor: EventInterceptor {
                                  callback: mouse_interceptor_callback, // fn to run on event
                                  userInfo: self_ptr)
     }
-    
-//    deinit {
-//        print("THIS BROKE")
-//    }
     
 }

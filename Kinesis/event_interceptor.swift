@@ -32,8 +32,8 @@ class EventInterceptor {
     }
     
     deinit {
-        print("THIS CALLED")
         disableTap()
+        log("EventInterceptor: Disabling event tap!")
     }
     
 }
