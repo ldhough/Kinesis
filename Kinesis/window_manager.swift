@@ -37,12 +37,14 @@ class KinesisWindowManager {
     private let positionUpdateQueue:DispatchQueue
     
     init() {
+        
         self.positionUpdateLock = pthread_mutex_t()
         pthread_mutex_init(&positionUpdateLock, nil)
         self.positionUpdateQueue = DispatchQueue(label: "positionUpdateQueue", qos: .userInteractive, attributes: .concurrent)
         self.pidObserver = PidObserver()
         self.keyInterceptor = KeyEventInterceptor(keyEventAction: self.keyEventAction)
         self.mouseInterceptor = MouseEventInterceptor(mouseEventAction: self.mouseEventAction)
+    
     }
     
     /*
@@ -77,7 +79,9 @@ class KinesisWindowManager {
     private func keyEventAction(event: CGEvent) -> Unmanaged<CGEvent>? {
         
         let unmodifiedEvent = Unmanaged.passRetained(event)
-        let code = event.getIntegerValueField(.keyboardEventKeycode)
+        guard let code = Keycodes(rawValue: Int(event.getIntegerValueField(.keyboardEventKeycode))) else {
+            return nil
+        }
         
         if let _ = transformer {} else {
             guard let activePid = self.activePid else { return unmodifiedEvent }
@@ -85,58 +89,66 @@ class KinesisWindowManager {
         }
         
         // Command + W has been pressed
-        if code.equals(.w) && event.flags.contains(.maskCommand) {
+        if code == .w && event.flags.contains(.maskCommand) {
                         
             self.listeningEscapeAndMouseFlag = true
             return nil
         
         // Right arrow pressed while in window management mode
-        } else if code.equals(.right) && self.listeningEscapeAndMouseFlag  {
-                        
-            let panels = KWM.getDisplayListData()
-            let hcpv = KWM.halfCenterPointsVertical(displays: panels)
+        } else if DIRECTION_KEYCODES.contains(code) && self.listeningEscapeAndMouseFlag {
             
-            let displaySize = panels[0].frame.size
-            let windowSize = CGSize(width: displaySize.width / 2.0, height: displaySize.height)
-            do {
-                try transformer?.setPosition(to: CGPoint(x: displaySize.width / 2.0, y: 0))
-                try transformer?.setSize(to: windowSize)
-            } catch {
-                log("FAILED: transforming based on arrow key")
-            }
-            
-//            let currentWindowCenterPoint = {
-//                let currLocationTopLeft = transformer?.getCurrentWindowPosition()
-//                let currentSize = transformer?.getCurrentWindowSize()
-//            }()
-//
-//            let closest:CGPoint = {
-//                var clt = CGPoint(x: CGFloat.greatestFiniteMagnitude, y: 0)
-//                for point in hcpv {
-//
-//                }
-//                return CGPoint(x: 0, y: 0)
-//            }()
-            
+            self.windowDirectionShift(code: code)
             return nil
-        } else if code.equals(.left) && self.listeningEscapeAndMouseFlag {
             
-            return nil
-        } else if code.equals(.up) && self.listeningEscapeAndMouseFlag {
-            
-            return nil
-        } else if code.equals(.down) && self.listeningEscapeAndMouseFlag {
-            
-            return nil
         // Escape has been pressed while in window management mode
-        } else if code.equals(.esc) && self.listeningEscapeAndMouseFlag {
+        } else if code == .esc && self.listeningEscapeAndMouseFlag {
             
             self.listeningEscapeAndMouseFlag = false
             self.transformer = nil
             return nil
+            
         // Something this program does not care about happens
         } else {
             return unmodifiedEvent
+        }
+    }
+    
+    let panels = KWM.getDisplayListData()
+    private func windowDirectionShift(code: Keycodes) {
+        
+        guard let currentWindowPosition = transformer?.getCurrentWindowPosition() else { return }
+        guard let currentWindowSize = transformer?.getCurrentWindowSize() else { return }
+        
+        // Figure out which display most of the focused window is in
+        let display:() = panels.max { l, r in
+            
+        }
+        
+//        panels.map { displayData in
+//            displayData.frame
+//        }.map { rect in
+//            rect.intersection(CGRect(origin: currentWindowPosition, size: currentWindowSize))
+//        }.max { l, r in
+//            l.area > r.area
+//        }
+        
+        guard let display = display else { return }
+        do {
+            switch code {
+            case .left, .h:
+                break
+            case .right, .l:
+                try transformer?.setPosition(to: CGPoint(x: display.origin.x + (display.size.width / 2.0), y: 0))
+                try transformer?.setSize(to: CGSize(width: display.size.width / 2.0, height: display.size.height))
+            case .down, .j:
+                break
+            case .up, .k:
+                break
+            default:
+                return
+            }
+        } catch {
+            
         }
     }
     
@@ -152,8 +164,6 @@ class KinesisWindowManager {
             return unmodifiedEvent
         }
                 
-        //guard let activePid = activePid else { return unmodifiedEvent }
-
         if let _ = transformer {} else {
             guard let activePid = self.activePid else { return unmodifiedEvent }
             transformer = WindowTransformer(forWindowWithPid: activePid)

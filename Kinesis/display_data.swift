@@ -22,4 +22,12 @@ struct DisplayData {
     let index:Int
     let frame:CGRect
     
+    var size:CGSize {
+        frame.size
+    }
+    
+    var origin:CGPoint {
+        frame.origin
+    }
+    
 }

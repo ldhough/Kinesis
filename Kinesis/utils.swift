@@ -60,3 +60,11 @@ extension Array {
     }
     
 }
+
+extension CGRect {
+    
+    var area:CGFloat {
+        self.width * self.height
+    }
+    
+}
