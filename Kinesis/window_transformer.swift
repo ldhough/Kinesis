@@ -21,7 +21,6 @@ class WindowTransformer {
     private let windowElement:AXUIElement?
     
     init?(forWindowWithPid: pid_t) {
-        
         // Make Accessibility object for given PID
         let accessApp:AXUIElement = AXUIElementCreateApplication(forWindowWithPid)
         
@@ -37,9 +36,14 @@ class WindowTransformer {
         
     }
     
-    public func transformWindowWithDeltas(x: CGFloat, y: CGFloat, forEvent: CGEvent) {
+    // Returns the point that the window got moved to
+    public func transformWindowWithDeltas(x: CGFloat,
+                                          y: CGFloat,
+                                          forEvent: CGEvent,
+                                          atPoint: CGPoint? = nil) -> CGPoint? {
+        //let current = atPoint == nil ? getCurrentWindowPosition() : atPoint!
         let current = getCurrentWindowPosition()
-        guard let current = current else { return }
+        guard let current = current else { return nil }
         let newX = current.x + x
         let newY = current.y + y
 //        let newX = x
@@ -48,7 +52,9 @@ class WindowTransformer {
             try setPosition(to: CGPoint(x: newX, y: newY))
         } catch {
             print("CAUGHT ERROR IN TRANSFORMWINDOWWITHDELTAS")
+            return nil
         }
+        return CGPoint(x: newX, y: newY)
     }
     
     // Returns the index of screen 0 ... N the window is contained primarily within
@@ -96,16 +102,24 @@ class WindowTransformer {
         if windowElement == nil { return nil }
         
         var positionData:CFTypeRef?
+        let i = currentTimeInMilliSeconds()
+        //windowElement!.
+        
+        
+        
         AXUIElementCopyAttributeValue(windowElement!,
                                       kAXPositionAttribute as CFString,
                                       &positionData)
+        let j = currentTimeInMilliSeconds()
+        print(j - i)
+
                 
         let currentPos = axValueAsCGPoint(positionData! as! AXValue)
         
         let display = WindowTransformer.withinScreenN(windowPoint: currentPos)
         guard let display = display else { return currentPos }
         
-        print("Dimensions of current display are w: \(display.frame.width), h: \(display.frame.height)")
+        //print("Dimensions of current display are w: \(display.frame.width), h: \(display.frame.height)")
         
         return currentPos
     }
@@ -126,9 +140,13 @@ class WindowTransformer {
         if position == nil {
             throw TransformerError.setPositionError
         }
-        
+        let x = currentTimeInMilliSeconds()
         let err = AXUIElementSetAttributeValue(self.windowElement!, kAXPositionAttribute as CFString, position!)
-        
+        let y = currentTimeInMilliSeconds()
+        print(y - x)
+        //        let x = 1
+        //print(err)
+//        print(err.rawValue)
         if err != .success {
             print("AXError moving window \(err)")
         }

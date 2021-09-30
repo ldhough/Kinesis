@@ -12,7 +12,6 @@ class PidObserver {
     
     private let notificationCenter = NSWorkspace.shared.notificationCenter
     private let activeNotification = NSWorkspace.didActivateApplicationNotification
-    //private let notif = NSWorkspace.
     private let queue = OperationQueue.main
 
     // Listen for notifications indicating an application has been focused
@@ -22,8 +21,7 @@ class PidObserver {
 
             let info = notification.userInfo
             let app = info?[AnyHashable("NSWorkspaceApplicationKey")] as? NSRunningApplication
-//            app.
-            //app.ac
+
             guard let pid = app?.processIdentifier else {
                 usePid(nil)
                 return

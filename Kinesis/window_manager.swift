@@ -18,17 +18,27 @@ class KinesisWindowManager {
     
     private let pidObserver:PidObserver
     private var transformer:WindowTransformer?
-    private var listeningEscapeAndMouseFlag = false
+    private var listeningEscapeAndMouseFlag = false {
+        didSet {
+            log("listeningEscapeAndMouseFlag set to \(listeningEscapeAndMouseFlag)")
+        }
+    }
     
     private var keyInterceptor:KeyEventInterceptor?
     private var mouseInterceptor:MouseEventInterceptor?
     
-    private var activePid:pid_t?
+    private var activePid:pid_t? {
+        didSet {
+            // Reset when "focused" window changes
+            currentWindowPoint = nil
+        }
+    }
     
     init() {
         self.pidObserver = PidObserver()
         self.keyInterceptor = KeyEventInterceptor(keyEventAction: self.keyEventAction)
         self.mouseInterceptor = MouseEventInterceptor(mouseEventAction: self.mouseEventAction)
+        pthread_mutex_init(&lock, nil)
     }
     
     // Activates the window manager, returns true if successful, false if not
@@ -62,6 +72,11 @@ class KinesisWindowManager {
         let unmodifiedEvent = Unmanaged.passRetained(event)
         let code = event.getIntegerValueField(.keyboardEventKeycode)
         
+        if let _ = transformer {} else {
+            guard let activePid = self.activePid else { return unmodifiedEvent }
+            transformer = WindowTransformer(forWindowWithPid: activePid)
+        }
+        
         // Command + W has been pressed
         if code.equals(.w) && event.flags.contains(.maskCommand) {
             
@@ -73,14 +88,16 @@ class KinesisWindowManager {
         // Right arrow pressed while in window management mode
         } else if code.equals(.right) && self.listeningEscapeAndMouseFlag  {
             
+            log("RIGHT PRESSED")
+            
             let panels = KWM.getDisplayListData()
             let hcpv = KWM.halfCenterPointsVertical(displays: panels)
             
             let displaySize = panels[0].frame.size
             let windowSize = CGSize(width: displaySize.width / 2.0, height: displaySize.height)
             do {
-                try transformer?.setSize(to: windowSize)
                 try transformer?.setPosition(to: CGPoint(x: displaySize.width / 2.0, y: 0))
+                try transformer?.setSize(to: windowSize)
             } catch {
                 log("FAILED: transforming based on arrow key")
             }
@@ -113,6 +130,7 @@ class KinesisWindowManager {
             
             self.listeningEscapeAndMouseFlag = false
             self.transformer = nil
+            self.currentWindowPoint = nil
             return nil
         // Something this program does not care about happens
         } else {
@@ -120,6 +138,7 @@ class KinesisWindowManager {
         }
     }
     
+    var currentWindowPoint:CGPoint? = nil
     /*
      Describes the behavior of the window manager on a mouse moved event.
      Passed to and called from mouseInterceptor:MouseEventInterceptor object.
@@ -132,9 +151,10 @@ class KinesisWindowManager {
             return unmodifiedEvent
         }
                 
-        guard let activePid = activePid else { return unmodifiedEvent }
+        //guard let activePid = activePid else { return unmodifiedEvent }
 
         if let _ = transformer {} else {
+            guard let activePid = self.activePid else { return unmodifiedEvent }
             transformer = WindowTransformer(forWindowWithPid: activePid)
         }
 
@@ -149,13 +169,24 @@ class KinesisWindowManager {
         //print("Mouse delta is x: \(deltaX) & y: \(deltaY)")
 
         // Attempt to move window based on mouse events
-        transformer?.transformWindowWithDeltas(x: deltaX, y: deltaY, forEvent: event) 
+        let q = DispatchQueue(label: "serial")//DispatchQueue(label: "hi", qos: .userInteractive, attributes: .concurrent)
+        q.async {
+            if 0 != pthread_mutex_trylock(&self.lock) {
+                print("no lock")
+                return
+            }
+            print("got lock")
+            self.currentWindowPoint = self.transformer?.transformWindowWithDeltas(x: deltaX, y: deltaY, forEvent: event, atPoint: self.currentWindowPoint)
+            pthread_mutex_unlock(&self.lock)
+        }
 
         // Try alt?
         CGWarpMouseCursorPosition(eventLocation) // Don't move cursor
 
         return nil
     }
+    var lock = pthread_mutex_t()
+    
     
     private static func halfCenterPointsVertical(displays: [DisplayData]) -> [CGPoint] {
         var points:[CGPoint] = []
