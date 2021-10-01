@@ -8,8 +8,6 @@
 import Foundation
 import AppKit
 
-fileprivate typealias KWM = KinesisWindowManager
-
 enum WindowManagerError: String, Error {
     case other = "Window manager error!"
 }
@@ -94,55 +92,53 @@ class KinesisWindowManager {
             self.listeningEscapeAndMouseFlag = true
             return nil
         
-        // Right arrow pressed while in window management mode
-        } else if DIRECTION_KEYCODES.contains(code) && self.listeningEscapeAndMouseFlag {
-            
-            self.windowDirectionShift(code: code)
-            return nil
-            
-        // Escape has been pressed while in window management mode
+            // Escape has been pressed while in window management mode
         } else if code == .esc && self.listeningEscapeAndMouseFlag {
             
             self.listeningEscapeAndMouseFlag = false
             self.transformer = nil
             return nil
             
-        // Something this program does not care about happens
+        } else if DIRECTION_KEYCODES.contains(code) && self.listeningEscapeAndMouseFlag {
+            
+            self.windowDirectionShift(code: code)
+            return nil
+            
+        // Something program does not care about happens
         } else {
             return unmodifiedEvent
         }
     }
     
-    let panels = KWM.getDisplayListData()
     private func windowDirectionShift(code: Keycodes) {
         
         guard let currentWindowPosition = transformer?.getCurrentWindowPosition() else { return }
         guard let currentWindowSize = transformer?.getCurrentWindowSize() else { return }
+        let windowRect = CGRect(origin: currentWindowPosition, size: currentWindowSize)
         
         // Figure out which display most of the focused window is in
-        let display:() = panels.max { l, r in
-            
+        let display = DisplayManager.getDisplayListData().max { l, r in
+            l.frame.intersection(windowRect).area < r.frame.intersection(windowRect).area
         }
-        
-//        panels.map { displayData in
-//            displayData.frame
-//        }.map { rect in
-//            rect.intersection(CGRect(origin: currentWindowPosition, size: currentWindowSize))
-//        }.max { l, r in
-//            l.area > r.area
-//        }
-        
+                
         guard let display = display else { return }
+        
         do {
             switch code {
             case .left, .h:
+                try transformer?.setPosition(to: CGPoint(x: display.origin.x, y: display.origin.y))
+                try transformer?.setSize(to: CGSize(width: display.size.width / 2.0, height: display.size.height))
                 break
             case .right, .l:
-                try transformer?.setPosition(to: CGPoint(x: display.origin.x + (display.size.width / 2.0), y: 0))
+                try transformer?.setPosition(to: CGPoint(x: display.origin.x + (display.size.width / 2.0), y: display.origin.y))
                 try transformer?.setSize(to: CGSize(width: display.size.width / 2.0, height: display.size.height))
             case .down, .j:
+                try transformer?.setPosition(to: CGPoint(x: display.origin.x, y: display.origin.y + (display.size.height / 2.0)))
+                try transformer?.setSize(to: CGSize(width: display.size.width, height: display.size.height / 2.0))
                 break
             case .up, .k:
+                try transformer?.setPosition(to: CGPoint(x: display.origin.x, y: display.origin.y))
+                try transformer?.setSize(to: CGSize(width: display.size.width, height: display.size.height / 2.0))
                 break
             default:
                 return
@@ -187,49 +183,6 @@ class KinesisWindowManager {
         CGWarpMouseCursorPosition(eventLocation) // Don't move cursor
 
         return nil
-    }
-    
-    private static func halfCenterPointsVertical(displays: [DisplayData]) -> [CGPoint] {
-        var points:[CGPoint] = []
-        for display in displays {
-            let startPoint = CGPoint(x: display.frame.minX, y: display.frame.minY)
-            
-            let w = display.frame.width
-            let h = display.frame.height
-            let centerVertical = h / 2.0
-            
-            let quarterWidth = w / 4.0
-            let centerHalfLeftHorizontal = startPoint.x + quarterWidth
-            let centerHalfRightHorizontal = startPoint.x + (3.0 * quarterWidth)
-            
-            points.append(CGPoint(x: centerHalfLeftHorizontal, y: centerVertical))
-            points.append(CGPoint(x: centerHalfRightHorizontal, y: centerVertical))
-        }
-        return points
-    }
-    
-    private static func getDisplayList() -> [CGDirectDisplayID] {
-
-        let max:UInt32 = 16
-        var displays = [CGDirectDisplayID](repeating: 0, count: Int(max))
-        var onlineDisplaysCount:UInt32 = 0
-        let err = CGGetOnlineDisplayList(max,
-                                         &displays,
-                                         &onlineDisplaysCount)
-        
-        if err != .success {
-            log("Error getting list of online displays: \(err)")
-            return []
-        }
-        
-        return displays
-        
-    }
-    
-    public static func getDisplayListData() -> [DisplayData] {
-        KWM.getDisplayList().mapWithIndex({ idx, displayId in
-            DisplayData(index: idx, frame: CGDisplayBounds(displayId))
-        })
     }
     
 }
