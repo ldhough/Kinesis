@@ -12,16 +12,22 @@ enum WindowManagerError: String, Error {
     case other = "Window manager error!"
 }
 
+/*
+ Class describes how windows behave in response to certain mouse and key events
+ */
+
 class KinesisWindowManager {
     
+    // Dependencies
     private let pidObserver:PidObserver
     private var transformer:WindowTransformer?
-    private var listeningEscapeAndMouseFlag = false
-    
     private var keyInterceptor:KeyEventInterceptor?
     private var mouseInterceptor:MouseEventInterceptor?
     
+    // Logic management properties
+    private var listeningEscapeAndMouseFlag = false
     private var activePid:pid_t?
+    private var lastWindowRect:CGRect?
     
     /*
      Window position updates from cursor events happen extremely rapidly.  When multiple
@@ -110,7 +116,34 @@ class KinesisWindowManager {
         }
     }
     
+    private func leftHalfForDisplay(_ display: DisplayData) -> CGRect {
+        CGRect(origin: CGPoint(x: display.origin.x, y: display.origin.y),
+               size: CGSize(width: display.size.width / 2.0, height: display.size.height))
+    }
+    
+    private func rightHalfForDiplay(_ display: DisplayData) -> CGRect {
+        CGRect(origin: CGPoint(x: display.origin.x + (display.size.width / 2.0), y: display.origin.y),
+               size: CGSize(width: display.size.width / 2.0, height: display.size.height))
+    }
+    
+    private func bottomHalfForDiplay(_ display: DisplayData) -> CGRect {
+        CGRect(origin: CGPoint(x: display.origin.x, y: display.origin.y + (display.size.height / 2.0)),
+               size: CGSize(width: display.size.width, height: display.size.height / 2.0))
+    }
+    
+    private func topHalfForDiplay(_ display: DisplayData) -> CGRect {
+        CGRect(origin: CGPoint(x: display.origin.x, y: display.origin.y),
+               size: CGSize(width: display.size.width, height: display.size.height / 2.0))
+    }
+    
     private func windowDirectionShift(code: Keycodes) {
+        
+        let ds = DisplayManager.getDisplayListData()
+        for d in ds {
+            print("INDEX: \(d.index)")
+            print("LEFT: \(d.frame.origin.x)")
+            print("RIGHT: \(d.frame.origin.x + d.frame.size.width)")
+        }
         
         guard let currentWindowPosition = transformer?.getCurrentWindowPosition() else { return }
         guard let currentWindowSize = transformer?.getCurrentWindowSize() else { return }
@@ -126,19 +159,19 @@ class KinesisWindowManager {
         do {
             switch code {
             case .left, .h:
-                try transformer?.setPosition(to: CGPoint(x: display.origin.x, y: display.origin.y))
-                try transformer?.setSize(to: CGSize(width: display.size.width / 2.0, height: display.size.height))
+                let proposed = leftHalfForDisplay(display)
+                if proposed == lastWindowRect && self.activePid == transformer?.pid {
+                    
+                }
                 break
             case .right, .l:
-                try transformer?.setPosition(to: CGPoint(x: display.origin.x + (display.size.width / 2.0), y: display.origin.y))
-                try transformer?.setSize(to: CGSize(width: display.size.width / 2.0, height: display.size.height))
+//                let proposed = rightHalfForDiplay(display)
+                break
             case .down, .j:
-                try transformer?.setPosition(to: CGPoint(x: display.origin.x, y: display.origin.y + (display.size.height / 2.0)))
-                try transformer?.setSize(to: CGSize(width: display.size.width, height: display.size.height / 2.0))
+//                let proposed = bottomHalfForDiplay(display)
                 break
             case .up, .k:
-                try transformer?.setPosition(to: CGPoint(x: display.origin.x, y: display.origin.y))
-                try transformer?.setSize(to: CGSize(width: display.size.width, height: display.size.height / 2.0))
+//                let proposed = topHalfForDiplay(display)
                 break
             default:
                 return

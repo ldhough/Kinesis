@@ -19,16 +19,20 @@ enum TransformerError: String, Error {
 class WindowTransformer {
     
     private let windowElement:AXUIElement?
+    public let pid:pid_t
     
     init?(forWindowWithPid: pid_t) {
+        
+        self.pid = forWindowWithPid
+        
         // Make Accessibility object for given PID
         let accessApp:AXUIElement = AXUIElementCreateApplication(forWindowWithPid)
         
         // Get value associated with kAXWindowsAttribute in windowData, create windowElement from this data
         var windowData:AnyObject?
         // TODO: Use kAXFocusedWindowAttribute
+        // AXUIElementCopyAttributeValue(accessApp, kAXFocusedWindowAttribute as CFString, &windowData)
         AXUIElementCopyAttributeValue(accessApp, kAXWindowsAttribute as CFString, &windowData)
-//        AXUIElementCopyAttributeValue(accessApp, kAXFocusedWindowAttribute as CFString, &windowData)
         windowElement = (windowData as? [AXUIElement])?.first
         
         guard let _ = windowElement else { return nil }
@@ -38,8 +42,7 @@ class WindowTransformer {
     
     // Returns the point that the window got moved to
     public func transformWindowWithDeltas(x: CGFloat, y: CGFloat, forEvent: CGEvent) {
-        let current = getCurrentWindowPosition()
-        guard let current = current else { return }
+        guard let current = getCurrentWindowPosition() else { return }
         let newX = current.x + x
         let newY = current.y + y
 
@@ -48,38 +51,6 @@ class WindowTransformer {
         } catch {
             log("Error in transformWindowWithDeltas")
         }
-    }
-    
-    // Returns the index of screen 0 ... N the window is contained primarily within
-    private static func withinScreenN(windowPoint: CGPoint) -> DisplayData? {
-        
-        // Arbitrary but like who has more than 16 displays?
-        let maxDisplays:UInt32 = 16
-        var onlineDisplays = [CGDirectDisplayID](repeating: 0, count: Int(maxDisplays))
-        var onlineDisplaysCount:UInt32 = 0
-        
-        let err = CGGetOnlineDisplayList(maxDisplays, &onlineDisplays, &onlineDisplaysCount)
-        
-        if err != .success {
-            log("Error getting list of online displays: \(err)")
-        }
-        
-        for i in 0 ..< Int(onlineDisplaysCount) {
-            
-            let displayId = onlineDisplays[i]
-            let displayBounds = CGDisplayBounds(displayId)
-            let windowInsideDisplay = NSPointInRect(windowPoint, displayBounds)
-            
-            if windowInsideDisplay {
-                return DisplayData(index: i, frame: displayBounds)
-            }
-            
-        }
-        
-        // TODO: If outside visible bounds (left of leftmost display),
-        // possibly return closest display instead of -1?
-        
-        return nil
     }
     
     public func getCurrentWindowSize() -> CGSize? {
@@ -95,26 +66,24 @@ class WindowTransformer {
         if windowElement == nil { return nil }
         
         var positionData:CFTypeRef?
-
         AXUIElementCopyAttributeValue(windowElement!,
                                       kAXPositionAttribute as CFString,
                                       &positionData)
-                
+
+        // TODO: Make this safer
         let currentPos = axValueAsCGPoint(positionData! as! AXValue)
-        
-        let display = WindowTransformer.withinScreenN(windowPoint: currentPos)
-                
         return currentPos
     }
     
     public func setPositionAndSize(_ toPosition: CGPoint, _ toSize: CGSize) throws {
-
         try setPosition(to: toPosition)
         try setSize(to: toSize)
-        
     }
     
-    var lastFinished = true
+    public func setPositionAndSize(_ toRect: CGRect) throws {
+        try setPosition(to: toRect.origin)
+        try setSize(to: toRect.size)
+    }
     
     public func setPosition(to: CGPoint) throws {
         
