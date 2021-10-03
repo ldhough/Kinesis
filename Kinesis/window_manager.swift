@@ -116,34 +116,33 @@ class KinesisWindowManager {
         }
     }
     
-    private func leftHalfForDisplay(_ display: DisplayData) -> CGRect {
-        CGRect(origin: CGPoint(x: display.origin.x, y: display.origin.y),
-               size: CGSize(width: display.size.width / 2.0, height: display.size.height))
-    }
-    
-    private func rightHalfForDiplay(_ display: DisplayData) -> CGRect {
-        CGRect(origin: CGPoint(x: display.origin.x + (display.size.width / 2.0), y: display.origin.y),
-               size: CGSize(width: display.size.width / 2.0, height: display.size.height))
-    }
-    
-    private func bottomHalfForDiplay(_ display: DisplayData) -> CGRect {
-        CGRect(origin: CGPoint(x: display.origin.x, y: display.origin.y + (display.size.height / 2.0)),
-               size: CGSize(width: display.size.width, height: display.size.height / 2.0))
-    }
-    
-    private func topHalfForDiplay(_ display: DisplayData) -> CGRect {
-        CGRect(origin: CGPoint(x: display.origin.x, y: display.origin.y),
-               size: CGSize(width: display.size.width, height: display.size.height / 2.0))
-    }
-    
-    private func windowDirectionShift(code: Keycodes) {
-        
-        let ds = DisplayManager.getDisplayListData()
-        for d in ds {
-            print("INDEX: \(d.index)")
-            print("LEFT: \(d.frame.origin.x)")
-            print("RIGHT: \(d.frame.origin.x + d.frame.size.width)")
+    // Given a display and a direction, return a rectangle representing half of the display in that direction
+    private func windowForHalfOfDisplay(_ display: DisplayData, forSide: Direction) -> CGRect {
+        switch forSide {
+        case .top:
+            return CGRect(origin: CGPoint(x: display.origin.x, y: display.origin.y),
+                          size: CGSize(width: display.size.width, height: display.size.height / 2.0))
+        case .bottom:
+            return CGRect(origin: CGPoint(x: display.origin.x, y: display.origin.y + (display.size.height / 2.0)),
+                          size: CGSize(width: display.size.width, height: display.size.height / 2.0))
+        case .left:
+            return CGRect(origin: CGPoint(x: display.origin.x, y: display.origin.y),
+                          size: CGSize(width: display.size.width / 2.0, height: display.size.height))
+        case .right:
+            return CGRect(origin: CGPoint(x: display.origin.x + (display.size.width / 2.0), y: display.origin.y),
+                   size: CGSize(width: display.size.width / 2.0, height: display.size.height))
         }
+    }
+    
+    /*
+     Based on keycodes corresponding to a direction, attempt to make the selected window
+     occupy half of the screen either on the top, bottom, left, or right.  Will attempt
+     first to occupy the corresponding direction on the display the window is mostly on
+     unless the window is already in that location, in which case the function will try
+     to make the window occupy the opposite side of the adjacent display in that direction,
+     should one exist.
+     */
+    private func windowDirectionShift(code: Keycodes) {
         
         guard let currentWindowPosition = transformer?.getCurrentWindowPosition() else { return }
         guard let currentWindowSize = transformer?.getCurrentWindowSize() else { return }
@@ -156,29 +155,42 @@ class KinesisWindowManager {
                 
         guard let display = display else { return }
         
-        do {
-            switch code {
-            case .left, .h:
-                let proposed = leftHalfForDisplay(display)
-                if proposed == lastWindowRect && self.activePid == transformer?.pid {
-                    
-                }
-                break
-            case .right, .l:
-//                let proposed = rightHalfForDiplay(display)
-                break
-            case .down, .j:
-//                let proposed = bottomHalfForDiplay(display)
-                break
-            case .up, .k:
-//                let proposed = topHalfForDiplay(display)
-                break
-            default:
+        let moveTo:Direction
+
+        // Figure out which direction to try to shift the window based on keys corresponding to that direction
+        switch code {
+        case .left, .h:
+            moveTo = .left
+        case .right, .l:
+            moveTo = .right
+        case .down, .j:
+            moveTo = .bottom
+        case .up, .k:
+            moveTo = .top
+        default:
+            return
+        }
+        
+        var proposedWindowRect = windowForHalfOfDisplay(display, forSide: moveTo)
+        if proposedWindowRect == lastWindowRect && self.activePid == transformer?.pid {
+            print("Did change proposed window")
+            let adjacentDisplay = DisplayManager.getAdjacentDisplay(to: moveTo, sourceDisplay: display)
+            guard let adjacentDisplay = adjacentDisplay else {
                 return
             }
-        } catch {
-            
+            proposedWindowRect = windowForHalfOfDisplay(adjacentDisplay, forSide: moveTo.opposite())
+        } else {
+            print("Didn't change proposed window")
         }
+        
+        do {
+            try transformer?.setPositionAndSize(proposedWindowRect)
+            lastWindowRect = proposedWindowRect
+        } catch {
+            lastWindowRect = nil
+            log("Error shifting window!")
+        }
+        
     }
     
     /*

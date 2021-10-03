@@ -7,6 +7,27 @@
 
 import Foundation
 
+enum Direction {
+    
+    case right
+    case left
+    case top
+    case bottom
+    
+    func opposite() -> Direction {
+        switch self {
+        case .right:
+            return .left
+        case .left:
+            return .right
+        case .bottom:
+            return .top
+        case .top:
+            return .bottom
+        }
+    }
+}
+
 @inline(__always) func axValueAsCGPoint(_ value: AXValue) -> CGPoint {
     var point = CGPoint.zero
     AXValueGetValue(value, AXValueType.cgPoint, &point)
