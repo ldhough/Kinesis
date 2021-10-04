@@ -55,6 +55,7 @@ class KinesisWindowManager {
      Activates window manager
      returns: true if successful, false if unsuccessful
      */
+//    var pid_set = false
     public func start() -> Bool {
         
         guard let keyInterceptor = keyInterceptor, let mouseInterceptor = mouseInterceptor else {
@@ -67,9 +68,10 @@ class KinesisWindowManager {
         mouseInterceptor.createMouseTap()
         mouseInterceptor.activateTap()
         
-        pidObserver.observeActivePid({ pid in
-
+        pidObserver.observeActivePid({ [self] pid in
+            
             self.activePid = pid
+            transformer = WindowTransformer(forWindowWithPid: activePid!)
 
         })
         

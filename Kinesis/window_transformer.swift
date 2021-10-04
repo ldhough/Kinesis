@@ -77,13 +77,21 @@ class WindowTransformer {
     
     public func setPositionAndSize(_ toPosition: CGPoint, _ toSize: CGSize) throws {
         try setPosition(to: toPosition)
+        try setSize(to: CGSize(width: 1.0, height: 1.0)) // hack
         try setSize(to: toSize)
     }
     
     public func setPositionAndSize(_ toRect: CGRect) throws {
         print("TRY SET SIZE TO WIDTH: \(toRect.size.width)")
+//        try setSize(to: toRect.size)
         try setPosition(to: toRect.origin)
-        try setSize(to: toRect.size)
+        /*
+         This might be the stupidest hack ever but it
+         somehow prevents weird size conflict behavior
+         in the library
+         */
+        try setSize(to: CGSize(width: 1.0, height: 1.0)) // hack
+        try setSize(to: toRect.size) // intended size
         print("ACTUAL SET WIDTH IS: \(getCurrentWindowSize()?.width)")
     }
     
