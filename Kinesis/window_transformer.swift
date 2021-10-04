@@ -110,6 +110,7 @@ class WindowTransformer {
         if size == nil {
             throw TransformerError.setSizeError
         }
+        print("SIZE: \(size)")
         let err = AXUIElementSetAttributeValue(windowElement!, kAXSizeAttribute as CFString, size!)
         if err != .success {
             print("AXError resizing window \(err)")

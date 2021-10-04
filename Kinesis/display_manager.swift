@@ -10,33 +10,6 @@ import Foundation
 // If someone has more than 16 displays wtf?
 fileprivate let MAX_DISPLAYS:UInt32 = 16
 
-// Represents distance w/ start and end points on a 1D number line
-struct RealLine {
-    
-    let start:CGFloat
-    let end:CGFloat
-    
-    var distance:CGFloat {
-        end - start
-    }
-    
-    // Returns the overlap between two 1D lines as a line, or nil if none exists
-    func overlap(with: RealLine) -> RealLine? {
-        
-        /*
-         If the start of the second line is inside the first line, there is overlap, this
-         overlap will be the distance from the start of the second line, to the end of
-         whichever line comes first
-         */
-        if self.start <= with.start {
-            return with.start < self.end ? RealLine(start: with.start, end: min(self.end, with.end)) : nil
-        } else {
-            return self.start < with.end ? RealLine(start: self.start, end: min(with.end, self.end)) : nil
-        }
-        
-    }
-}
-
 //class DisplayLayout {
 //
 //    init () {}
@@ -51,7 +24,6 @@ struct RealLine {
 class DisplayManager {
     
     static var manager = DisplayManager()
-    
     
     private init() {}
     
@@ -127,8 +99,14 @@ class DisplayManager {
         case .top, .bottom:
             sourceDisplayBorder = RealLine(start: sourceDisplay.origin.x,
                                            end: sourceDisplay.origin.x + sourceDisplay.size.width)
-            linesUpWith = { display in
-                display.origin.y == sourceDisplay.origin.y + sourceDisplay.size.height
+            if to == .bottom {
+                linesUpWith = { display in
+                    display.origin.y == sourceDisplay.origin.y + sourceDisplay.size.height
+                }
+            } else {
+                linesUpWith = { display in
+                    sourceDisplay.origin.y == display.origin.y + display.size.height
+                }
             }
             createLine = { display in
                 RealLine(start: display.origin.x, end: display.origin.x + display.size.width)

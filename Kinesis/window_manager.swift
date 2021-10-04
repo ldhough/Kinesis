@@ -28,7 +28,6 @@ class KinesisWindowManager {
     private var listeningEscapeAndMouseFlag = false
     private var activePid:pid_t?
     private var lastWindowRect:CGRect?
-//    private var lastWindowShift:Direction?
     
     /*
      Window position updates from cursor events happen extremely rapidly.  When multiple
@@ -139,9 +138,8 @@ class KinesisWindowManager {
      Based on keycodes corresponding to a direction, attempt to make the selected window
      occupy half of the screen either on the top, bottom, left, or right.  Will attempt
      first to occupy the corresponding direction on the display the window is mostly on
-     unless the window is already in that location, in which case the function will try
-     to make the window occupy the opposite side of the adjacent display in that direction,
-     should one exist.
+     and if the window is already in that location, the function will try to make the window
+     occupy the opposite side of the adjacent display in that direction, should one exist.
      */
     private func windowDirectionShift(code: Keycodes) {
         
@@ -173,42 +171,47 @@ class KinesisWindowManager {
         }
         
         var proposedWindowRect = windowForHalfOfDisplay(display, forSide: moveTo)
-        print("CURR WINDOW RECT: \(windowRect)")
-        print("PROPOSED WINDOW RECT: \(proposedWindowRect)")
-        print("LAST WINDOW RECT: \(lastWindowRect)")
-        print("PID \(self.activePid == transformer?.pid ? "TRUE" : "FALSE")")
-        if /*windowRect.origin == lastWindowRect?.origin &&*/ windowRect.origin.x == proposedWindowRect.origin.x /*&& windowRect == lastWindowRect*/ && self.activePid == transformer?.pid {
-//        if lastWindowShift == moveTo && activePid == transformer?.pid {
-            print("Did change proposed window")
-            let adjacentDisplay = DisplayManager.getAdjacentDisplay(to: moveTo, sourceDisplay: display)
-            guard let adjacentDisplay = adjacentDisplay else {
-                print("No adjacent display")
-                return
-            }
-            proposedWindowRect = windowForHalfOfDisplay(adjacentDisplay, forSide: moveTo.opposite())
-        } else {
-            print("Didn't change proposed window")
-        }
         
         positionUpdateQueue.async { [self] in
+            
+            defer {
+                pthread_mutex_unlock(&self.positionUpdateLock)
+            }
+            
             guard 0 == pthread_mutex_trylock(&self.positionUpdateLock) else { return }
             do {
+                // Set window position & size to correct side of the display that the window is primarily on
                 try transformer?.setPositionAndSize(proposedWindowRect)
                 
-                // Must check actual size & position because sometimes windows cannot
-                // be set to a certain size, pos, etc... ex: some windows have min width
-                
+                /*
+                 Check where the window actually got put / sized... this may be slightly different
+                 than the proposed location because certain screen areas are off bounds, some windows
+                 have minimum size requirements, etc.
+                 */
                 guard let currPos = transformer?.getCurrentWindowPosition(), let currSize = transformer?.getCurrentWindowSize() else {
                     return
                 }
-                lastWindowRect = CGRect(origin: currPos, size: currSize)
-                print("SETTING LASTWINDOWRECT TO \(lastWindowRect)")
-//                lastWindowShift = moveTo
-                pthread_mutex_unlock(&self.positionUpdateLock)
+                var newRect = CGRect(origin: currPos, size: currSize)
+                
+                // If window got set to where it already was...
+                if newRect == lastWindowRect && self.activePid == transformer?.pid {
+                    
+                    // ... propose a new location, the opposite side of the adjacent display, should one exist
+                    let adjacentDisplay = DisplayManager.getAdjacentDisplay(to: moveTo, sourceDisplay: display)
+                    guard let adjacentDisplay = adjacentDisplay else { return }
+                    proposedWindowRect = windowForHalfOfDisplay(adjacentDisplay, forSide: moveTo.opposite())
+                    
+                    // Attempt to set to new position
+                    try transformer?.setPositionAndSize(proposedWindowRect)
+                    guard let currPos = transformer?.getCurrentWindowPosition(), let currSize = transformer?.getCurrentWindowSize() else {
+                        return
+                    }
+                    newRect = CGRect(origin: currPos, size: currSize)
+                }
+                lastWindowRect = newRect
             } catch {
                 lastWindowRect = nil
                 log("Error shifting window!")
-                pthread_mutex_unlock(&self.positionUpdateLock)
             }
         }
     }
