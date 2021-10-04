@@ -81,8 +81,10 @@ class WindowTransformer {
     }
     
     public func setPositionAndSize(_ toRect: CGRect) throws {
+        print("TRY SET SIZE TO WIDTH: \(toRect.size.width)")
         try setPosition(to: toRect.origin)
         try setSize(to: toRect.size)
+        print("ACTUAL SET WIDTH IS: \(getCurrentWindowSize()?.width)")
     }
     
     public func setPosition(to: CGPoint) throws {

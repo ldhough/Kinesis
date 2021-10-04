@@ -109,10 +109,17 @@ class DisplayManager {
         
         switch to {
         case .right, .left:
+            print("r, l")
             sourceDisplayBorder = RealLine(start: sourceDisplay.origin.y,
                                            end: sourceDisplay.origin.y + sourceDisplay.size.height)
-            linesUpWith = { display in
-                display.origin.x == sourceDisplay.origin.x + sourceDisplay.size.width
+            if to == .right {
+                linesUpWith = { display in
+                    display.origin.x == sourceDisplay.origin.x + sourceDisplay.size.width
+                }
+            } else {
+                linesUpWith = { display in
+                    sourceDisplay.origin.x == display.origin.x + display.size.width
+                }
             }
             createLine = { display in
                 RealLine(start: display.origin.y, end: display.origin.y + display.size.height)
@@ -132,7 +139,7 @@ class DisplayManager {
             
             // Verify that top/bottom or right/left of two displays line up (not necessarily adjacent)
             if linesUpWith(display) {
-                
+                print("DOES LINE UP")
                 /*
                  Identify how much overlap the display being checked has against the source display,
                  if indeed it has any at all

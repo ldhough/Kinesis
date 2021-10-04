@@ -28,6 +28,7 @@ class KinesisWindowManager {
     private var listeningEscapeAndMouseFlag = false
     private var activePid:pid_t?
     private var lastWindowRect:CGRect?
+//    private var lastWindowShift:Direction?
     
     /*
      Window position updates from cursor events happen extremely rapidly.  When multiple
@@ -84,7 +85,7 @@ class KinesisWindowManager {
         
         let unmodifiedEvent = Unmanaged.passRetained(event)
         guard let code = Keycodes(rawValue: Int(event.getIntegerValueField(.keyboardEventKeycode))) else {
-            return nil
+            return unmodifiedEvent // TODO: verify fixed bug
         }
         
         if let _ = transformer {} else {
@@ -172,10 +173,16 @@ class KinesisWindowManager {
         }
         
         var proposedWindowRect = windowForHalfOfDisplay(display, forSide: moveTo)
-        if proposedWindowRect == lastWindowRect && self.activePid == transformer?.pid {
+        print("CURR WINDOW RECT: \(windowRect)")
+        print("PROPOSED WINDOW RECT: \(proposedWindowRect)")
+        print("LAST WINDOW RECT: \(lastWindowRect)")
+        print("PID \(self.activePid == transformer?.pid ? "TRUE" : "FALSE")")
+        if /*windowRect.origin == lastWindowRect?.origin &&*/ windowRect.origin.x == proposedWindowRect.origin.x /*&& windowRect == lastWindowRect*/ && self.activePid == transformer?.pid {
+//        if lastWindowShift == moveTo && activePid == transformer?.pid {
             print("Did change proposed window")
             let adjacentDisplay = DisplayManager.getAdjacentDisplay(to: moveTo, sourceDisplay: display)
             guard let adjacentDisplay = adjacentDisplay else {
+                print("No adjacent display")
                 return
             }
             proposedWindowRect = windowForHalfOfDisplay(adjacentDisplay, forSide: moveTo.opposite())
@@ -183,14 +190,27 @@ class KinesisWindowManager {
             print("Didn't change proposed window")
         }
         
-        do {
-            try transformer?.setPositionAndSize(proposedWindowRect)
-            lastWindowRect = proposedWindowRect
-        } catch {
-            lastWindowRect = nil
-            log("Error shifting window!")
+        positionUpdateQueue.async { [self] in
+            guard 0 == pthread_mutex_trylock(&self.positionUpdateLock) else { return }
+            do {
+                try transformer?.setPositionAndSize(proposedWindowRect)
+                
+                // Must check actual size & position because sometimes windows cannot
+                // be set to a certain size, pos, etc... ex: some windows have min width
+                
+                guard let currPos = transformer?.getCurrentWindowPosition(), let currSize = transformer?.getCurrentWindowSize() else {
+                    return
+                }
+                lastWindowRect = CGRect(origin: currPos, size: currSize)
+                print("SETTING LASTWINDOWRECT TO \(lastWindowRect)")
+//                lastWindowShift = moveTo
+                pthread_mutex_unlock(&self.positionUpdateLock)
+            } catch {
+                lastWindowRect = nil
+                log("Error shifting window!")
+                pthread_mutex_unlock(&self.positionUpdateLock)
+            }
         }
-        
     }
     
     /*
