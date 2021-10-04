@@ -91,6 +91,7 @@ class WindowTransformer {
          in the library
          */
         try setSize(to: CGSize(width: 1.0, height: 1.0)) // hack
+        try setPosition(to: toRect.origin) // more hack
         try setSize(to: toRect.size) // intended size
         print("ACTUAL SET WIDTH IS: \(getCurrentWindowSize()?.width)")
     }
